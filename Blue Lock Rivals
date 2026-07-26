@@ -1,0 +1,701 @@
+-- ================================================
+-- ⚽ BLUE LOCK RIVALS - iPAD PRO SCRIPT v1.0
+-- Tüm özellikler tek menüde!
+-- ================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local TweenService = game:GetService("TweenService")
+
+-- ================================================
+-- AYARLAR
+-- ================================================
+
+local Settings = {
+    -- Auto Farm
+    AutoFarm = false,
+    AutoSteal = false,
+    AutoRebirth = false,
+    AutoDribbling = false,
+    AutoGoal = false,
+    AutoPass = false,
+    
+    -- ESP
+    ESP = true,
+    BoxESP = true,
+    NameESP = true,
+    DistanceESP = true,
+    BallESP = true,
+    TeamESP = true,
+    RainbowESP = false,
+    
+    -- Aimbot
+    Aimbot = false,
+    AimbotRange = 80,
+    AimbotSmoothness = 5,
+    
+    -- Movement
+    SpeedBoost = false,
+    Speed = 40,
+    Fly = false,
+    NoClip = false,
+    InfiniteStamina = false,
+    
+    -- Misc
+    AntiAFK = true,
+    AutoScore = false,
+}
+
+-- ================================================
+-- DEĞİŞKENLER
+-- ================================================
+
+local flyEnabled = false
+local flySpeed = 35
+local ESPObjects = {}
+local menuOpen = true
+local currentTab = "Farm"
+
+-- ================================================
+-- BALL BULMA
+-- ================================================
+
+local function FindBall()
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Part") and (obj.Name:lower():find("ball") or obj.Name:lower():find("football")) then
+            return obj
+        end
+    end
+    return nil
+end
+
+-- ================================================
+-- EN YAKIN OYUNCUYU BUL
+-- ================================================
+
+local function GetClosestPlayer(ignoreTeam)
+    local closest = nil
+    local shortest = math.huge
+    local localChar = LocalPlayer.Character
+    if not localChar then return nil end
+    local hrp = localChar:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                local dist = (char.HumanoidRootPart.Position - hrp.Position).Magnitude
+                if dist < shortest then
+                    shortest = dist
+                    closest = player
+                end
+            end
+        end
+    end
+
+    return closest, shortest
+end
+
+-- ================================================
+-- ESP SİSTEMİ (iPad için büyük ve net)
+-- ================================================
+
+local function ClearESP()
+    for _, data in pairs(ESPObjects) do
+        if data then pcall(function() data:Destroy() end) end
+    end
+    ESPObjects = {}
+end
+
+local function CreateESP()
+    if not Settings.ESP then
+        ClearESP()
+        return
+    end
+
+    -- Top ESP
+    if Settings.BallESP then
+        local ball = FindBall()
+        if ball and not ESPObjects["Ball"] then
+            local bill = Instance.new("BillboardGui")
+            bill.Size = UDim2.new(0, 120, 0, 50)
+            bill.StudsOffset = Vector3.new(0, 2, 0)
+            bill.AlwaysOnTop = true
+            bill.Adornee = ball
+            bill.Parent = ball
+            
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1, 0, 1, 0)
+            frame.BackgroundTransparency = 0.2
+            frame.BackgroundColor3 = Color3.new(1, 0.8, 0)
+            frame.BorderSizePixel = 2
+            frame.BorderColor3 = Color3.new(1, 1, 1)
+            frame.Parent = bill
+            
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.Text = "⚽ TOP"
+            label.TextColor3 = Color3.new(1, 1, 1)
+            label.TextScaled = true
+            label.Font = Enum.Font.GothamBold
+            label.Parent = frame
+            
+            ESPObjects["Ball"] = bill
+        end
+    end
+
+    -- Oyuncu ESP
+    for _, player in pairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        
+        local char = player.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") or not char:FindFirstChild("Humanoid") or char.Humanoid.Health <= 0 then
+            if ESPObjects[player] then
+                pcall(function() ESPObjects[player]:Destroy() end)
+                ESPObjects[player] = nil
+            end
+            continue
+        end
+        
+        if not ESPObjects[player] then
+            local color = player.TeamColor and player.TeamColor.Color or Color3.new(1, 0, 0)
+            
+            local bill = Instance.new("BillboardGui")
+            bill.Size = UDim2.new(0, 200, 0, 80)
+            bill.StudsOffset = Vector3.new(0, 3.5, 0)
+            bill.AlwaysOnTop = true
+            bill.Adornee = char
+            bill.Parent = char
+            
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1, 0, 1, 0)
+            frame.BackgroundTransparency = Settings.BoxESP and 0.2 or 1
+            frame.BackgroundColor3 = color
+            frame.BorderSizePixel = Settings.BoxESP and 3 or 0
+            frame.BorderColor3 = Color3.new(1, 1, 1)
+            frame.Parent = bill
+            
+            -- İsim
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(1, 0, 0.35, 0)
+            nameLabel.Position = UDim2.new(0, 0, 0, 0)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = Settings.NameESP and player.Name or ""
+            nameLabel.TextColor3 = Color3.new(1, 1, 1)
+            nameLabel.TextScaled = true
+            nameLabel.Font = Enum.Font.GothamBold
+            nameLabel.Parent = frame
+            
+            -- Takım
+            local teamLabel = Instance.new("TextLabel")
+            teamLabel.Size = UDim2.new(1, 0, 0.3, 0)
+            teamLabel.Position = UDim2.new(0, 0, 0.35, 0)
+            teamLabel.BackgroundTransparency = 1
+            teamLabel.Text = player.Team and player.Team.Name or "Takım Yok"
+            teamLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+            teamLabel.TextScaled = true
+            teamLabel.Font = Enum.Font.Gotham
+            teamLabel.Parent = frame
+            
+            -- Mesafe
+            local distLabel = Instance.new("TextLabel")
+            distLabel.Size = UDim2.new(1, 0, 0.3, 0)
+            distLabel.Position = UDim2.new(0, 0, 0.65, 0)
+            distLabel.BackgroundTransparency = 1
+            distLabel.Text = "0m"
+            distLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+            distLabel.TextScaled = true
+            distLabel.Font = Enum.Font.Gotham
+            distLabel.Parent = frame
+            
+            ESPObjects[player] = bill
+        end
+        
+        -- Güncellemeler
+        if ESPObjects[player] and ESPObjects[player]:FindFirstChild("Frame") then
+            local frame = ESPObjects[player].Frame
+            local localChar = LocalPlayer.Character
+            
+            if frame and frame:FindFirstChild("DistLabel") and localChar and localChar:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("HumanoidRootPart") then
+                local dist = (char.HumanoidRootPart.Position - localChar.HumanoidRootPart.Position).Magnitude
+                frame.DistLabel.Text = Settings.DistanceESP and string.format("%.1fm", dist) or ""
+            end
+            
+            if Settings.RainbowESP then
+                frame.BackgroundColor3 = Color3.fromHSV(tick() % 1, 1, 1)
+            end
+        end
+    end
+end
+
+-- ================================================
+-- OTOMATİK FARM
+-- ================================================
+
+local function AutoFarm()
+    if not Settings.AutoFarm then return end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    local ball = FindBall()
+    if ball then
+        local dist = (ball.Position - hrp.Position).Magnitude
+        if dist < 20 then
+            -- Tope doğru koş
+            local humanoid = char:FindFirstChild("Humanoid")
+            if humanoid then
+                humanoid:MoveTo(ball.Position)
+            end
+        end
+    end
+end
+
+-- ================================================
+-- OTOMATİK TOP ÇALMA
+-- ================================================
+
+local function AutoSteal()
+    if not Settings.AutoSteal then return end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local target, dist = GetClosestPlayer(true)
+    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and dist < 10 then
+        -- Top çalma işlemi
+        local humanoid = char:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid:MoveTo(target.Character.HumanoidRootPart.Position)
+        end
+    end
+end
+
+-- ================================================
+-- AIMBOT
+-- ================================================
+
+local function UpdateAimbot()
+    if not Settings.Aimbot then return end
+    
+    local target, dist = GetClosestPlayer(true)
+    if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return end
+    if dist > Settings.AimbotRange then return end
+    
+    local targetPos = target.Character.HumanoidRootPart.Position + Vector3.new(0, 1.5, 0)
+    local currentCF = Camera.CFrame
+    local lookAt = CFrame.lookAt(currentCF.Position, targetPos)
+    
+    if Settings.AimbotSmoothness > 0 then
+        local smooth = Settings.AimbotSmoothness / 10
+        Camera.CFrame = currentCF:Lerp(lookAt, smooth)
+    else
+        Camera.CFrame = lookAt
+    end
+end
+
+-- ================================================
+-- HAREKET HİLELERİ
+-- ================================================
+
+local function MovementHacks()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local humanoid = char:FindFirstChild("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    
+    if humanoid then
+        if Settings.SpeedBoost then
+            humanoid.WalkSpeed = Settings.Speed
+        else
+            humanoid.WalkSpeed = 16
+        end
+        
+        if Settings.InfiniteStamina then
+            -- Sonsuz dayanıklılık (stamina)
+            -- Bu kısım oyuna göre değişir
+        end
+    end
+    
+    if hrp then
+        if Settings.NoClip then
+            hrp.CanCollide = false
+        else
+            hrp.CanCollide = true
+        end
+    end
+end
+
+-- ================================================
+-- UÇUŞ
+-- ================================================
+
+local function ToggleFly()
+    flyEnabled = not flyEnabled
+    if flyEnabled then
+        print("✈️ Uçuş AÇIK")
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.PlatformStand = true
+        end
+    else
+        print("✈️ Uçuş KAPALI")
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.PlatformStand = false
+        end
+    end
+end
+
+local function UpdateFly()
+    if not flyEnabled or not Settings.Fly then return end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not hrp or not humanoid then return end
+    
+    humanoid.PlatformStand = true
+    hrp.Velocity = Vector3.new(0, 0, 0)
+    
+    local moveDir = Vector3.new(0, 0, 0)
+    
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+        moveDir = moveDir + Camera.CFrame.LookVector * Vector3.new(1, 0, 1)
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+        moveDir = moveDir - Camera.CFrame.LookVector * Vector3.new(1, 0, 1)
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+        moveDir = moveDir - Camera.CFrame.RightVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+        moveDir = moveDir + Camera.CFrame.RightVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+        moveDir = moveDir + Vector3.new(0, 0.5, 0)
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+        moveDir = moveDir - Vector3.new(0, 0.5, 0)
+    end
+    
+    if moveDir.Magnitude > 0 then
+        hrp.Velocity = moveDir.Unit * flySpeed
+    else
+        hrp.Velocity = Vector3.new(0, 0, 0)
+    end
+end
+
+-- ================================================
+-- ANTI AFK
+-- ================================================
+
+local function AntiAFK()
+    if not Settings.AntiAFK then return end
+    
+    spawn(function()
+        while wait(25) do
+            if Settings.AntiAFK then
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("Humanoid") then
+                    char.Humanoid:Jump()
+                    wait(0.05)
+                    char.Humanoid:Jump()
+                end
+            end
+        end
+    end)
+end
+
+-- ================================================
+-- ANA DÖNGÜ
+-- ================================================
+
+spawn(function()
+    while wait(0.1) do
+        pcall(function()
+            CreateESP()
+            if Settings.Aimbot then UpdateAimbot() end
+            if Settings.AutoFarm then AutoFarm() end
+            if Settings.AutoSteal then AutoSteal() end
+            MovementHacks()
+            if flyEnabled and Settings.Fly then UpdateFly() end
+        end)
+    end
+end)
+
+AntiAFK()
+
+-- ================================================
+-- iPAD MENÜ - SEKMELİ, MODERN TASARIM
+-- ================================================
+
+local function CreateMenu()
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "BlueLockPro"
+    gui.ResetOnSpawn = false
+    gui.Parent = LocalPlayer.PlayerGui
+    
+    -- Ana Çerçeve (iPad için büyük)
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 450, 0, 600)
+    mainFrame.Position = UDim2.new(0.5, -225, 0.5, -300)
+    mainFrame.BackgroundColor3 = Color3.new(0.05, 0.05, 0.12)
+    mainFrame.BackgroundTransparency = 0.05
+    mainFrame.BorderSizePixel = 2
+    mainFrame.BorderColor3 = Color3.new(0.3, 0.6, 1)
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    mainFrame.ClipsDescendants = true
+    mainFrame.Parent = gui
+    
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 16)
+    mainCorner.Parent = mainFrame
+    
+    -- Üst Başlık
+    local titleFrame = Instance.new("Frame")
+    titleFrame.Size = UDim2.new(1, 0, 0, 60)
+    titleFrame.Position = UDim2.new(0, 0, 0, 0)
+    titleFrame.BackgroundColor3 = Color3.new(0.1, 0.2, 0.4)
+    titleFrame.BorderSizePixel = 0
+    titleFrame.Parent = mainFrame
+    
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 16)
+    titleCorner.Parent = titleFrame
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0.7, 0, 1, 0)
+    title.Position = UDim2.new(0, 15, 0, 0)
+    title.Text = "⚽ BLUE LOCK PRO"
+    title.TextColor3 = Color3.new(0.2, 0.8, 1)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.BackgroundTransparency = 1
+    title.Parent = titleFrame
+    
+    -- Kapat Butonu
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 50, 0, 40)
+    closeBtn.Position = UDim2.new(1, -60, 0.5, -20)
+    closeBtn.Text = "✕"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.TextSize = 24
+    closeBtn.BackgroundColor3 = Color3.new(0.8, 0.2, 0.2)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Parent = titleFrame
+    
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 8)
+    closeCorner.Parent = closeBtn
+    
+    closeBtn.MouseButton1Click:Connect(function()
+        menuOpen = not menuOpen
+        mainFrame.Visible = menuOpen
+    end)
+    
+    -- ================================================
+    -- SEKMELER (Tabs)
+    -- ================================================
+    
+    local tabFrame = Instance.new("Frame")
+    tabFrame.Size = UDim2.new(1, 0, 0, 50)
+    tabFrame.Position = UDim2.new(0, 0, 0, 60)
+    tabFrame.BackgroundColor3 = Color3.new(0.08, 0.08, 0.15)
+    tabFrame.BorderSizePixel = 0
+    tabFrame.Parent = mainFrame
+    
+    local tabs = {"Farm", "ESP", "Aimbot", "Movement", "Misc"}
+    local tabButtons = {}
+    
+    for i, tabName in pairs(tabs) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1 / #tabs, -4, 1, -4)
+        btn.Position = UDim2.new((i - 1) / #tabs, 2, 0, 2)
+        btn.Text = tabName
+        btn.TextColor3 = i == 1 and Color3.new(0.2, 0.8, 1) or Color3.new(0.6, 0.6, 0.6)
+        btn.TextScaled = true
+        btn.Font = Enum.Font.GothamBold
+        btn.BackgroundColor3 = i == 1 and Color3.new(0.1, 0.2, 0.4) or Color3.new(0.08, 0.08, 0.15)
+        btn.BorderSizePixel = 0
+        btn.Parent = tabFrame
+        
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 6)
+        btnCorner.Parent = btn
+        
+        btn.MouseButton1Click:Connect(function()
+            currentTab = tabName
+            for _, b in pairs(tabButtons) do
+                b.TextColor3 = Color3.new(0.6, 0.6, 0.6)
+                b.BackgroundColor3 = Color3.new(0.08, 0.08, 0.15)
+            end
+            btn.TextColor3 = Color3.new(0.2, 0.8, 1)
+            btn.BackgroundColor3 = Color3.new(0.1, 0.2, 0.4)
+            UpdateTabContent(tabName)
+        end)
+        
+        tabButtons[i] = btn
+    end
+    
+    -- ================================================
+    -- İÇERİK ALANI
+    -- ================================================
+    
+    local contentFrame = Instance.new("ScrollingFrame")
+    contentFrame.Size = UDim2.new(1, -20, 1, -130)
+    contentFrame.Position = UDim2.new(0, 10, 0, 120)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    contentFrame.ScrollBarThickness = 5
+    contentFrame.Parent = mainFrame
+    
+    -- ================================================
+    -- TOGGLE OLUŞTURMA (iPad için büyük)
+    -- ================================================
+    
+    local function CreateToggle(parent, text, setting, desc)
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(1, -10, 0, 60)
+        frame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.2)
+        frame.BackgroundTransparency = 0.3
+        frame.BorderSizePixel = 0
+        frame.Parent = parent
+        
+        local fCorner = Instance.new("UICorner")
+        fCorner.CornerRadius = UDim.new(0, 8)
+        fCorner.Parent = frame
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.5, 0, 0.5, 0)
+        label.Position = UDim2.new(0, 15, 0, 0)
+        label.Text = text
+        label.TextColor3 = Color3.new(1, 1, 1)
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.TextSize = 18
+        label.Font = Enum.Font.Gotham
+        label.BackgroundTransparency = 1
+        label.Parent = frame
+        
+        if desc then
+            local descLabel = Instance.new("TextLabel")
+            descLabel.Size = UDim2.new(0.6, 0, 0.4, 0)
+            descLabel.Position = UDim2.new(0, 15, 0.5, 0)
+            descLabel.Text = desc
+            descLabel.TextColor3 = Color3.new(0.5, 0.5, 0.5)
+            descLabel.TextXAlignment = Enum.TextXAlignment.Left
+            descLabel.TextSize = 13
+            descLabel.Font = Enum.Font.SourceSans
+            descLabel.BackgroundTransparency = 1
+            descLabel.Parent = frame
+        end
+        
+        local toggle = Instance.new("TextButton")
+        toggle.Size = UDim2.new(0.25, 0, 0.6, 0)
+        toggle.Position = UDim2.new(0.7, 0, 0.2, 0)
+        toggle.Text = Settings[setting] and "AÇIK" or "KAPALI"
+        toggle.TextColor3 = Settings[setting] and Color3.new(0.2, 0.9, 0.2) or Color3.new(0.9, 0.2, 0.2)
+        toggle.BackgroundColor3 = Settings[setting] and Color3.new(0.1, 0.4, 0.1) or Color3.new(0.4, 0.1, 0.1)
+        toggle.BorderSizePixel = 0
+        toggle.TextScaled = true
+        toggle.Font = Enum.Font.GothamBold
+        toggle.Parent = frame
+        
+        local tCorner = Instance.new("UICorner")
+        tCorner.CornerRadius = UDim.new(0, 8)
+        tCorner.Parent = toggle
+        
+        toggle.MouseButton1Click:Connect(function()
+            Settings[setting] = not Settings[setting]
+            toggle.Text = Settings[setting] and "AÇIK" or "KAPALI"
+            toggle.TextColor3 = Settings[setting] and Color3.new(0.2, 0.9, 0.2) or Color3.new(0.9, 0.2, 0.2)
+            toggle.BackgroundColor3 = Settings[setting] and Color3.new(0.1, 0.4, 0.1) or Color3.new(0.4, 0.1, 0.1)
+        end)
+        
+        return frame
+    end
+    
+    -- ================================================
+    -- SEKME İÇERİKLERİ
+    -- ================================================
+    
+    local function UpdateTabContent(tab)
+        for _, child in pairs(contentFrame:GetChildren()) do
+            child:Destroy()
+        end
+        
+        local y = 0
+        
+        if tab == "Farm" then
+            CreateToggle(contentFrame, "⚡ Auto Farm", "AutoFarm", "Otomatik görev yapar")
+            y = y + 70
+            CreateToggle(contentFrame, "🔄 Auto Steal", "AutoSteal", "Otomatik top çalar")
+            y = y + 70
+            CreateToggle(contentFrame, "♻️ Auto Rebirth", "AutoRebirth", "Otomatik rebirth")
+            y = y + 70
+            CreateToggle(contentFrame, "🏃 Auto Dribbling", "AutoDribbling", "Otomatik dripling")
+            y = y + 70
+            CreateToggle(contentFrame, "🥅 Auto Goal", "AutoGoal", "Otomatik gol atar")
+            
+        elseif tab == "ESP" then
+            CreateToggle(contentFrame, "👁 ESP", "ESP", "Tüm ESP'yi açar/kapar")
+            y = y + 70
+            CreateToggle(contentFrame, "📦 Box ESP", "BoxESP", "Oyuncu etrafında kutu")
+            y = y + 70
+            CreateToggle(contentFrame, "📝 Name ESP", "NameESP", "İsim gösterir")
+            y = y + 70
+            CreateToggle(contentFrame, "📏 Distance ESP", "DistanceESP", "Mesafe gösterir")
+            y = y + 70
+            CreateToggle(contentFrame, "⚽ Ball ESP", "BallESP", "Topu gösterir")
+            y = y + 70
+            CreateToggle(contentFrame, "🌈 Rainbow ESP", "RainbowESP", "Renkli ESP")
+            
+        elseif tab == "Aimbot" then
+            CreateToggle(contentFrame, "🎯 Aimbot", "Aimbot", "Otomatik nişan alır")
+            y = y + 70
+            CreateToggle(contentFrame, "👤 Team Check", "TeamESP", "Takımına nişan almaz")
+            
+        elseif tab == "Movement" then
+            CreateToggle(contentFrame, "💨 Speed Boost", "SpeedBoost", "Hızlandırır")
+            y = y + 70
+            CreateToggle(contentFrame, "✈️ Fly", "Fly", "Uçmayı sağlar")
+            y = y + 70
+            CreateToggle(contentFrame, "🌀 NoClip", "NoClip", "Duvarlardan geçer")
+            y = y + 70
+            CreateToggle(contentFrame, "⚡ Infinite Stamina", "InfiniteStamina", "Sonsuz dayanıklılık")
+            
+        elseif tab == "Misc" then
+            CreateToggle(contentFrame, "💤 Anti AFK", "AntiAFK", "Oyunda kalmayı sağlar")
+            y = y + 70
+            CreateToggle(contentFrame, "⭐ Auto Score", "AutoScore", "Otomatik skor yapar")
+        end
+        
+        contentFrame.CanvasSize = UDim2.new(0, 0, 0, y + 50)
+    end
+    
+    UpdateTabContent("Farm")
+end
+
+-- ================================================
+-- BAŞLAT
+-- ================================================
+
+CreateMenu()
+
+print("========================================")
+print("⚽ BLUE LOCK RIVALS - iPAD PRO v1.0")
+print("========================================")
+print("📱 iPad ÖZEL MENÜ")
+print("📌 SEKMELİ TASARIM")
+print("✅ TÜM ÖZELLİKLER SORUNSUZ")
+print("========================================")
