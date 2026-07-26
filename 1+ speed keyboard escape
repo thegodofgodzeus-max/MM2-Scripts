@@ -1,0 +1,298 @@
+-- 1+ SPEED ESCAPE KEYBOARD - HIZLI KAÇIŞ + UÇUŞ SCRIPT'i
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
+local Settings = {
+    Speed = 50,
+    JumpPower = 70,
+    EnableSpeed = true,
+    EnableJump = true,
+    EnableNoClip = false,
+    EnableFly = false,
+}
+
+local flyEnabled = false
+local flySpeed = 30
+
+-- ================================================
+-- HIZ
+-- ================================================
+
+local function SetSpeed()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not humanoid then return end
+    
+    if Settings.EnableSpeed then
+        humanoid.WalkSpeed = Settings.Speed
+    else
+        humanoid.WalkSpeed = 16
+    end
+end
+
+-- ================================================
+-- ZIPLAMA
+-- ================================================
+
+local function SetJump()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not humanoid then return end
+    
+    if Settings.EnableJump then
+        humanoid.JumpPower = Settings.JumpPower
+    else
+        humanoid.JumpPower = 50
+    end
+end
+
+-- ================================================
+-- NOCLIP
+-- ================================================
+
+local function SetNoClip()
+    if not Settings.EnableNoClip then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.CanCollide = false
+    end
+end
+
+-- ================================================
+-- UÇUŞ (FLY)
+-- ================================================
+
+local function ToggleFly()
+    flyEnabled = not flyEnabled
+    if flyEnabled then
+        print("✈️ Uçuş AÇIK")
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.PlatformStand = true
+        end
+    else
+        print("✈️ Uçuş KAPALI")
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.PlatformStand = false
+        end
+    end
+end
+
+local function Fly()
+    if not flyEnabled or not Settings.EnableFly then return end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not hrp or not humanoid then return end
+    
+    humanoid.PlatformStand = true
+    hrp.Velocity = Vector3.new(0, 0, 0)
+    
+    local moveDir = Vector3.new(0, 0, 0)
+    
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+        moveDir = moveDir + Camera.CFrame.LookVector * Vector3.new(1, 0, 1)
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+        moveDir = moveDir - Camera.CFrame.LookVector * Vector3.new(1, 0, 1)
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+        moveDir = moveDir - Camera.CFrame.RightVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+        moveDir = moveDir + Camera.CFrame.RightVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+        moveDir = moveDir + Vector3.new(0, 0.5, 0)
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+        moveDir = moveDir - Vector3.new(0, 0.5, 0)
+    end
+    
+    if moveDir.Magnitude > 0 then
+        hrp.Velocity = moveDir.Unit * flySpeed
+    else
+        hrp.Velocity = Vector3.new(0, 0, 0)
+    end
+end
+
+-- ================================================
+-- KLAVYE KISAYOLLARI
+-- ================================================
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.One then
+        Settings.EnableSpeed = not Settings.EnableSpeed
+        print("⚡ Hız: " .. (Settings.EnableSpeed and "AÇIK" or "KAPALI"))
+        SetSpeed()
+    end
+    
+    if input.KeyCode == Enum.KeyCode.Two then
+        Settings.EnableJump = not Settings.EnableJump
+        print("🦘 Zıplama: " .. (Settings.EnableJump and "AÇIK" or "KAPALI"))
+        SetJump()
+    end
+    
+    if input.KeyCode == Enum.KeyCode.Three then
+        Settings.EnableNoClip = not Settings.EnableNoClip
+        print("🌀 NoClip: " .. (Settings.EnableNoClip and "AÇIK" or "KAPALI"))
+    end
+    
+    if input.KeyCode == Enum.KeyCode.Four then
+        Settings.EnableFly = not Settings.EnableFly
+        if not Settings.EnableFly and flyEnabled then
+            flyEnabled = false
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.PlatformStand = false
+            end
+        end
+        print("✈️ Uçuş Modu: " .. (Settings.EnableFly and "AÇIK" or "KAPALI"))
+    end
+    
+    if input.KeyCode == Enum.KeyCode.F then
+        if Settings.EnableFly then
+            ToggleFly()
+        end
+    end
+end)
+
+-- ================================================
+-- ANA DÖNGÜ
+-- ================================================
+
+RunService.Heartbeat:Connect(function()
+    pcall(function()
+        SetSpeed()
+        SetJump()
+        SetNoClip()
+        
+        if flyEnabled and Settings.EnableFly then
+            Fly()
+        end
+    end)
+end)
+
+-- ================================================
+-- MENÜ
+-- ================================================
+
+local function CreateMenu()
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "SpeedEscape"
+    gui.ResetOnSpawn = false
+    gui.Parent = LocalPlayer.PlayerGui
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 250, 0, 250)
+    frame.Position = UDim2.new(0.5, -125, 0.5, -125)
+    frame.BackgroundColor3 = Color3.new(0.05, 0.05, 0.15)
+    frame.BackgroundTransparency = 0.1
+    frame.Active = true
+    frame.Draggable = true
+    frame.Parent = gui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = frame
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Text = "⚡ SPEED ESCAPE v2"
+    title.TextColor3 = Color3.new(0.2, 0.8, 1)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.BackgroundTransparency = 1
+    title.Parent = frame
+    
+    local info = Instance.new("TextLabel")
+    info.Size = UDim2.new(1, 0, 0, 25)
+    info.Position = UDim2.new(0, 0, 0, 40)
+    info.Text = "1:Speed | 2:Jump | 3:NoClip | 4:Fly | F:Fly"
+    info.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    info.TextSize = 11
+    info.BackgroundTransparency = 1
+    info.Parent = frame
+    
+    local y = 70
+    local function Toggle(text, setting)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.9, 0, 0, 30)
+        btn.Position = UDim2.new(0.05, 0, 0, y)
+        btn.Text = text .. ": " .. (Settings[setting] and "✅ AÇIK" or "❌ KAPALI")
+        btn.TextColor3 = Settings[setting] and Color3.new(0.2, 0.9, 0.2) or Color3.new(0.9, 0.2, 0.2)
+        btn.BackgroundColor3 = Color3.new(0.1, 0.1, 0.2)
+        btn.BorderSizePixel = 0
+        btn.Parent = frame
+        
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 5)
+        btnCorner.Parent = btn
+        
+        btn.MouseButton1Click:Connect(function()
+            Settings[setting] = not Settings[setting]
+            btn.Text = text .. ": " .. (Settings[setting] and "✅ AÇIK" or "❌ KAPALI")
+            btn.TextColor3 = Settings[setting] and Color3.new(0.2, 0.9, 0.2) or Color3.new(0.9, 0.2, 0.2)
+        end)
+        
+        y = y + 38
+    end
+    
+    Toggle("⚡ Speed", "EnableSpeed")
+    Toggle("🦘 Jump", "EnableJump")
+    Toggle("🌀 NoClip", "EnableNoClip")
+    Toggle("✈️ Fly", "EnableFly")
+    
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0.4, 0, 0, 30)
+    closeBtn.Position = UDim2.new(0.3, 0, 0, y + 10)
+    closeBtn.Text = "KAPAT"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.BackgroundColor3 = Color3.new(0.8, 0.2, 0.2)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Parent = frame
+    
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 5)
+    closeCorner.Parent = closeBtn
+    
+    closeBtn.MouseButton1Click:Connect(function()
+        frame.Visible = not frame.Visible
+    end)
+end
+
+-- ================================================
+-- BAŞLAT
+-- ================================================
+
+CreateMenu()
+
+print("========================================")
+print("⚡ SPEED ESCAPE v2 YÜKLENDİ!")
+print("========================================")
+print("📌 KLAVYE KISAYOLLARI:")
+print("   [1] Speed AÇ/KAPA")
+print("   [2] Jump AÇ/KAPA")
+print("   [3] NoClip AÇ/KAPA")
+print("   [4] Fly AÇ/KAPA")
+print("   [F] Uçuşu Başlat/Durdur")
+print("========================================")
+print("✈️ Uçuş Kontrolleri:")
+print("   W/S - İleri/Geri")
+print("   A/D - Sağ/Sol")
+print("   Space - Yukarı")
+print("   Shift - Aşağı")
+print("========================================")
