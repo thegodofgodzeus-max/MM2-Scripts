@@ -1,127 +1,3 @@
--- ================================================
--- 🚀 MM2 MOBİL PRO MENÜ v5.0
--- YouTube @RobloxScriptsFree tarzı menü
--- ================================================
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local UserInputService = game:GetService("UserInputService")
-local Camera = workspace.CurrentCamera
-local TweenService = game:GetService("TweenService")
-
--- ================================================
--- AYARLAR (Görseldeki gibi)
--- ================================================
-
-local Settings = {
-    -- Aimbot
-    Aimbot = false,
-    AimbotRange = 50,
-    AimbotSmoothness = 5,
-    VisibleCheck = false,
-    
-    -- ESP
-    Boxes = true,
-    Distance = true,
-    Wallhack = false,
-    Names = true,
-    Skeleton = false,
-    Animations = false,
-    Rainbow = false,
-    RangeESP = false,
-    ESP = true,
-    
-    -- Shooting
-    Shooting = false,
-    
-    -- Misc
-    Misc = false,
-}
-
--- ================================================
--- DEĞİŞKENLER
--- ================================================
-
-local ESPObjects = {}
-local menuOpen = true
-
--- ================================================
--- ROL KONTROLÜ
--- ================================================
-
-local function GetMyRole()
-    local char = LocalPlayer.Character
-    if not char then return "Innocent" end
-    
-    local backpack = char:FindFirstChild("Backpack")
-    if not backpack then return "Innocent" end
-    
-    for _, tool in pairs(backpack:GetChildren()) do
-        if tool:IsA("Tool") then
-            if tool.Name:lower():find("knife") or tool.Name:lower():find("blade") then
-                return "Murderer"
-            elseif tool.Name:lower():find("gun") or tool.Name:lower():find("pistol") then
-                return "Sheriff"
-            end
-        end
-    end
-    
-    for _, tool in pairs(char:GetChildren()) do
-        if tool:IsA("Tool") then
-            if tool.Name:lower():find("knife") or tool.Name:lower():find("blade") then
-                return "Murderer"
-            elseif tool.Name:lower():find("gun") or tool.Name:lower():find("pistol") then
-                return "Sheriff"
-            end
-        end
-    end
-    
-    return "Innocent"
-end
-
--- ================================================
--- EN YAKIN OYUNCUYU BUL
--- ================================================
-
-local function GetClosestPlayer(ignoreTeam)
-    local closest = nil
-    local shortest = math.huge
-    local localChar = LocalPlayer.Character
-    if not localChar then return nil end
-    local hrp = localChar:FindFirstChild("HumanoidRootPart")
-    if not hrp then return nil end
-    
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local char = player.Character
-            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                if ignoreTeam and LocalPlayer.Team and player.Team and LocalPlayer.Team == player.Team then
-                    continue
-                end
-                local dist = (char.HumanoidRootPart.Position - hrp.Position).Magnitude
-                if dist < shortest then
-                    shortest = dist
-                    closest = player
-                end
-            end
-        end
-    end
-    
-    return closest, shortest
-end
-
--- ================================================
--- ESP SİSTEMİ (Görseldeki gibi)
--- ================================================
-
-local function ClearESP()
-    for _, data in pairs(ESPObjects) do
-        if data then pcall(function() data:Destroy() end) end
-    end
-    ESPObjects = {}
-end
-
 local function CreateESP()
     if not Settings.ESP then
         ClearESP()
@@ -143,15 +19,13 @@ local function CreateESP()
         if not ESPObjects[player] then
             local color = player.TeamColor and player.TeamColor.Color or Color3.new(1, 0, 0)
             
-            -- Ana Billboard
             local bill = Instance.new("BillboardGui")
-            bill.Size = UDim2.new(0, 200, 0, 70)
+            bill.Size = UDim2.new(0, 200, 0, 90) -- Biraz büyüttüm rol için
             bill.StudsOffset = Vector3.new(0, 3, 0)
             bill.AlwaysOnTop = true
             bill.Adornee = char
             bill.Parent = char
             
-            -- Kutu (Boxes)
             local frame = Instance.new("Frame")
             frame.Size = UDim2.new(1, 0, 1, 0)
             frame.BackgroundTransparency = Settings.Boxes and 0.2 or 1
@@ -162,7 +36,7 @@ local function CreateESP()
             
             -- İsim (Names)
             local nameLabel = Instance.new("TextLabel")
-            nameLabel.Size = UDim2.new(1, 0, 0.35, 0)
+            nameLabel.Size = UDim2.new(1, 0, 0.3, 0)
             nameLabel.Position = UDim2.new(0, 0, 0, 0)
             nameLabel.BackgroundTransparency = 1
             nameLabel.Text = Settings.Names and player.Name or ""
@@ -171,38 +45,27 @@ local function CreateESP()
             nameLabel.Font = Enum.Font.SourceSansBold
             nameLabel.Parent = frame
             
+            -- ROL ETİKETİ (🔪 KATİL / 🔫 ŞERİF / 👤 MASUM)
+            local roleLabel = Instance.new("TextLabel")
+            roleLabel.Size = UDim2.new(1, 0, 0.35, 0)
+            roleLabel.Position = UDim2.new(0, 0, 0.3, 0)
+            roleLabel.BackgroundTransparency = 1
+            roleLabel.Text = "???"
+            roleLabel.TextColor3 = Color3.new(1, 0.8, 0)
+            roleLabel.TextScaled = true
+            roleLabel.Font = Enum.Font.GothamBold
+            roleLabel.Parent = frame
+            
             -- Mesafe (Distance)
             local distLabel = Instance.new("TextLabel")
             distLabel.Size = UDim2.new(1, 0, 0.3, 0)
-            distLabel.Position = UDim2.new(0, 0, 0.35, 0)
+            distLabel.Position = UDim2.new(0, 0, 0.65, 0)
             distLabel.BackgroundTransparency = 1
             distLabel.Text = "0m"
             distLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
             distLabel.TextScaled = true
             distLabel.Font = Enum.Font.SourceSans
             distLabel.Parent = frame
-            
-            -- Rol (Players/Team)
-            local roleLabel = Instance.new("TextLabel")
-            roleLabel.Size = UDim2.new(1, 0, 0.35, 0)
-            roleLabel.Position = UDim2.new(0, 0, 0.65, 0)
-            roleLabel.BackgroundTransparency = 1
-            roleLabel.Text = "👤"
-            roleLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
-            roleLabel.TextScaled = true
-            roleLabel.Font = Enum.Font.SourceSans
-            roleLabel.Parent = frame
-            
-            -- Skeleton (İskelet) - Basit gösterim
-            if Settings.Skeleton then
-                -- Basit bir çizgi gösterimi (oyuncunun duruşunu simüle eder)
-                local skeletonFrame = Instance.new("Frame")
-                skeletonFrame.Size = UDim2.new(0, 2, 0.5, 0)
-                skeletonFrame.Position = UDim2.new(0.5, -1, 0.5, 0)
-                skeletonFrame.BackgroundColor3 = Color3.new(1, 1, 1)
-                skeletonFrame.BackgroundTransparency = 0.3
-                skeletonFrame.Parent = bill
-            end
             
             ESPObjects[player] = bill
         end
@@ -218,20 +81,63 @@ local function CreateESP()
                 frame.DistLabel.Text = Settings.Distance and string.format("%.1fm", dist) or ""
             end
             
-            -- Rol güncelle
+            -- ROL KONTROLÜ (Katil / Şerif / Masum)
             if frame and frame:FindFirstChild("RoleLabel") then
+                local roleText = "👤 Masum"
+                local roleColor = Color3.new(0.3, 0.8, 0.3) -- Yeşil
                 local isMurderer = false
+                local isSheriff = false
+                
+                -- Backpack'teki araçları kontrol et
                 local backpack = char:FindFirstChild("Backpack")
                 if backpack then
                     for _, tool in pairs(backpack:GetChildren()) do
-                        if tool:IsA("Tool") and (tool.Name:lower():find("knife") or tool.Name:lower():find("blade")) then
-                            isMurderer = true
-                            break
+                        if tool:IsA("Tool") then
+                            local toolName = tool.Name:lower()
+                            if toolName:find("knife") or toolName:find("blade") then
+                                isMurderer = true
+                                break
+                            elseif toolName:find("gun") or toolName:find("pistol") then
+                                isSheriff = true
+                                break
+                            end
                         end
                     end
                 end
-                frame.RoleLabel.Text = isMurderer and "🔪" or "👤"
-                frame.BackgroundColor3 = isMurderer and Color3.new(1, 0, 0) or Color3.new(0, 0.5, 0)
+                
+                -- Elindeki araçları da kontrol et
+                if not isMurderer and not isSheriff then
+                    for _, tool in pairs(char:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            local toolName = tool.Name:lower()
+                            if toolName:find("knife") or toolName:find("blade") then
+                                isMurderer = true
+                                break
+                            elseif toolName:find("gun") or toolName:find("pistol") then
+                                isSheriff = true
+                                break
+                            end
+                        end
+                    end
+                end
+                
+                -- Rol etiketini ayarla
+                if isMurderer then
+                    roleText = "🔪 KATİL"
+                    roleColor = Color3.new(1, 0, 0) -- Kırmızı
+                    frame.BackgroundColor3 = Color3.new(1, 0, 0)
+                elseif isSheriff then
+                    roleText = "🔫 ŞERİF"
+                    roleColor = Color3.new(0.2, 0.6, 1) -- Mavi
+                    frame.BackgroundColor3 = Color3.new(0.2, 0.4, 0.8)
+                else
+                    roleText = "👤 Masum"
+                    roleColor = Color3.new(0.3, 0.8, 0.3) -- Yeşil
+                    frame.BackgroundColor3 = Color3.new(0, 0.5, 0)
+                end
+                
+                frame.RoleLabel.Text = roleText
+                frame.RoleLabel.TextColor3 = roleColor
             end
             
             -- Rainbow
@@ -239,313 +145,10 @@ local function CreateESP()
                 frame.BackgroundColor3 = Color3.fromHSV(tick() % 1, 1, 1)
             end
             
-            -- Wallhack (Duvarlardan görme)
+            -- Wallhack
             if Settings.Wallhack then
                 ESPObjects[player].AlwaysOnTop = true
             end
         end
     end
 end
-
--- ================================================
--- AIMBOT (Görseldeki gibi)
--- ================================================
-
-local function UpdateAimbot()
-    if not Settings.Aimbot then return end
-    
-    local target, dist = GetClosestPlayer(true)
-    if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return end
-    if dist > Settings.AimbotRange then return end
-    
-    local targetPos = target.Character.HumanoidRootPart.Position + Vector3.new(0, 1.5, 0)
-    local currentCF = Camera.CFrame
-    local lookAt = CFrame.lookAt(currentCF.Position, targetPos)
-    
-    if Settings.AimbotSmoothness > 0 then
-        local smooth = Settings.AimbotSmoothness / 10
-        Camera.CFrame = currentCF:Lerp(lookAt, smooth)
-    else
-        Camera.CFrame = lookAt
-    end
-end
-
--- ================================================
--- RANGE ESP (Menzil Göstergesi)
--- ================================================
-
-local function CreateRangeESP()
-    if not Settings.RangeESP then
-        -- Mevcut range ESP'leri temizle
-        return
-    end
-    
-    -- Range ESP: Oyuncunun etrafında daire gösterir
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    
-    -- Basit bir daire gösterimi (part ile)
-    local rangePart = Instance.new("Part")
-    rangePart.Size = Vector3.new(Settings.AimbotRange * 2, 0.1, Settings.AimbotRange * 2)
-    rangePart.Position = hrp.Position
-    rangePart.Anchored = true
-    rangePart.CanCollide = false
-    rangePart.Transparency = 0.8
-    rangePart.BrickColor = BrickColor.new("Bright red")
-    rangePart.Parent = workspace
-    
-    -- Güncelleme döngüsü
-    spawn(function()
-        while Settings.RangeESP and rangePart and rangePart.Parent do
-            if hrp and hrp.Parent then
-                rangePart.Position = hrp.Position
-            end
-            wait(0.1)
-        end
-        if rangePart then rangePart:Destroy() end
-    end)
-end
-
--- ================================================
--- SHOOTING (Otomatik Ateş Etme)
--- ================================================
-
-local function AutoShoot()
-    if not Settings.Shooting then return end
-    
-    local role = GetMyRole()
-    if role ~= "Sheriff" then return end
-    
-    local target, dist = GetClosestPlayer(true)
-    if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return end
-    if dist > 50 then return end
-    
-    local localChar = LocalPlayer.Character
-    if not localChar then return end
-    
-    local weapon = localChar:FindFirstChildOfClass("Tool")
-    if not weapon or not weapon.Name:lower():find("gun") then return end
-    
-    local shootEvent = game:GetService("ReplicatedStorage"):FindFirstChild("ShootEvent")
-    if shootEvent then
-        shootEvent:FireServer(target.Character)
-    end
-end
-
--- ================================================
--- ANA DÖNGÜ
--- ================================================
-
-spawn(function()
-    while wait(0.1) do
-        pcall(function()
-            CreateESP()
-            if Settings.Aimbot then UpdateAimbot() end
-            if Settings.Shooting then AutoShoot() end
-            if Settings.RangeESP then CreateRangeESP() end
-        end)
-    end
-end)
-
--- ================================================
--- MENÜ (Görseldeki gibi)
--- ================================================
-
-local function CreateMenu()
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "MM2ProMenu"
-    gui.ResetOnSpawn = false
-    gui.Parent = LocalPlayer.PlayerGui
-    
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 320, 0, 480)
-    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -240)
-    mainFrame.BackgroundColor3 = Color3.new(0.05, 0.05, 0.1)
-    mainFrame.BackgroundTransparency = 0.1
-    mainFrame.BorderSizePixel = 2
-    mainFrame.BorderColor3 = Color3.new(0.3, 0.3, 0.5)
-    mainFrame.Active = true
-    mainFrame.Draggable = true
-    mainFrame.Parent = gui
-    
-    local mainCorner = Instance.new("UICorner")
-    mainCorner.CornerRadius = UDim.new(0, 8)
-    mainCorner.Parent = mainFrame
-    
-    -- Başlık
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 35)
-    title.Text = "🎯 MM2 PRO v5.0"
-    title.TextColor3 = Color3.new(0.2, 0.8, 1)
-    title.TextScaled = true
-    title.Font = Enum.Font.GothamBold
-    title.BackgroundTransparency = 1
-    title.Parent = mainFrame
-    
-    -- YouTube kanalı (görseldeki gibi)
-    local ytLabel = Instance.new("TextLabel")
-    ytLabel.Size = UDim2.new(1, 0, 0, 20)
-    ytLabel.Position = UDim2.new(0, 0, 0, 35)
-    ytLabel.Text = "youtube.com/@RobloxScriptsFree"
-    ytLabel.TextColor3 = Color3.new(1, 0.2, 0.2)
-    ytLabel.TextSize = 11
-    ytLabel.Font = Enum.Font.Gotham
-    ytLabel.BackgroundTransparency = 1
-    ytLabel.Parent = mainFrame
-    
-    -- Scroll alanı
-    local scroll = Instance.new("ScrollingFrame")
-    scroll.Size = UDim2.new(1, -10, 1, -100)
-    scroll.Position = UDim2.new(0, 5, 0, 60)
-    scroll.BackgroundTransparency = 1
-    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    scroll.ScrollBarThickness = 3
-    scroll.Parent = mainFrame
-    
-    local y = 5
-    
-    -- Toggle oluşturma (görseldeki gibi)
-    local function CreateToggle(text, setting, color)
-        color = color or Color3.new(0.2, 0.6, 1)
-        
-        local frame = Instance.new("Frame")
-        frame.Size = UDim2.new(1, -10, 0, 35)
-        frame.Position = UDim2.new(0, 0, 0, y)
-        frame.BackgroundTransparency = 1
-        frame.Parent = scroll
-        
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(0.6, 0, 1, 0)
-        label.Position = UDim2.new(0, 5, 0, 0)
-        label.Text = text
-        label.TextColor3 = Color3.new(1, 1, 1)
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.TextSize = 14
-        label.Font = Enum.Font.Gotham
-        label.BackgroundTransparency = 1
-        label.Parent = frame
-        
-        -- On/Off butonu (görseldeki gibi)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.3, 0, 0.7, 0)
-        btn.Position = UDim2.new(0.7, 0, 0.15, 0)
-        btn.Text = Settings[setting] and "On" or "Off"
-        btn.TextColor3 = Settings[setting] and Color3.new(0.2, 0.9, 0.2) or Color3.new(0.9, 0.2, 0.2)
-        btn.BackgroundColor3 = Settings[setting] and Color3.new(0.1, 0.3, 0.1) or Color3.new(0.3, 0.1, 0.1)
-        btn.BorderSizePixel = 0
-        btn.Parent = frame
-        
-        local btnCorner = Instance.new("UICorner")
-        btnCorner.CornerRadius = UDim.new(0, 4)
-        btnCorner.Parent = btn
-        
-        btn.MouseButton1Click:Connect(function()
-            Settings[setting] = not Settings[setting]
-            btn.Text = Settings[setting] and "On" or "Off"
-            btn.TextColor3 = Settings[setting] and Color3.new(0.2, 0.9, 0.2) or Color3.new(0.9, 0.2, 0.2)
-            btn.BackgroundColor3 = Settings[setting] and Color3.new(0.1, 0.3, 0.1) or Color3.new(0.3, 0.1, 0.1)
-        end)
-        
-        y = y + 40
-        return frame
-    end
-
-    -- ====== Aimbot Bölümü ======
-    local aimTitle = Instance.new("TextLabel")
-    aimTitle.Size = UDim2.new(1, 0, 0, 25)
-    aimTitle.Position = UDim2.new(0, 0, 0, y)
-    aimTitle.Text = "Aimbot"
-    aimTitle.TextColor3 = Color3.new(0.2, 0.8, 1)
-    aimTitle.TextSize = 16
-    aimTitle.Font = Enum.Font.GothamBold
-    aimTitle.BackgroundTransparency = 1
-    aimTitle.Parent = scroll
-    y = y + 30
-    
-    CreateToggle("Aimbot", "Aimbot")
-    CreateToggle("Visible Check", "VisibleCheck")
-    
-    -- ====== ESP Bölümü ======
-    local espTitle = Instance.new("TextLabel")
-    espTitle.Size = UDim2.new(1, 0, 0, 25)
-    espTitle.Position = UDim2.new(0, 0, 0, y)
-    espTitle.Text = "ESP"
-    espTitle.TextColor3 = Color3.new(0.2, 0.8, 1)
-    espTitle.TextSize = 16
-    espTitle.Font = Enum.Font.GothamBold
-    espTitle.BackgroundTransparency = 1
-    espTitle.Parent = scroll
-    y = y + 30
-    
-    CreateToggle("Boxes", "Boxes")
-    CreateToggle("Distance", "Distance")
-    CreateToggle("Wallhack", "Wallhack")
-    CreateToggle("Names", "Names")
-    CreateToggle("Skeleton", "Skeleton")
-    CreateToggle("Animations", "Animations")
-    CreateToggle("Rainbow", "Rainbow")
-    CreateToggle("Range ESP", "RangeESP")
-    CreateToggle("ESP", "ESP")
-    
-    -- ====== Misc Bölümü ======
-    local miscTitle = Instance.new("TextLabel")
-    miscTitle.Size = UDim2.new(1, 0, 0, 25)
-    miscTitle.Position = UDim2.new(0, 0, 0, y)
-    miscTitle.Text = "Misc"
-    miscTitle.TextColor3 = Color3.new(0.2, 0.8, 1)
-    miscTitle.TextSize = 16
-    miscTitle.Font = Enum.Font.GothamBold
-    miscTitle.BackgroundTransparency = 1
-    miscTitle.Parent = scroll
-    y = y + 30
-    
-    CreateToggle("Shooting", "Shooting")
-    CreateToggle("Misc", "Misc")
-    
-    scroll.CanvasSize = UDim2.new(0, 0, 0, y + 40)
-    
-    -- ====== Kapat Butonu (görseldeki gibi) ======
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(1, -20, 0, 40)
-    closeBtn.Position = UDim2.new(0, 10, 1, -50)
-    closeBtn.Text = "Close Menu"
-    closeBtn.TextColor3 = Color3.new(1, 1, 1)
-    closeBtn.TextScaled = true
-    closeBtn.Font = Enum.Font.Gotham
-    closeBtn.BackgroundColor3 = Color3.new(0.8, 0.2, 0.2)
-    closeBtn.BorderSizePixel = 0
-    closeBtn.Parent = mainFrame
-    
-    local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 6)
-    closeCorner.Parent = closeBtn
-    
-    closeBtn.MouseButton1Click:Connect(function()
-        menuOpen = not menuOpen
-        mainFrame.Visible = menuOpen
-    end)
-end
-
--- ================================================
--- BAŞLAT
--- ================================================
-
-CreateMenu()
-
-print("========================================")
-print("🎯 MM2 MOBİL PRO MENÜ v5.0 YÜKLENDİ!")
-print("========================================")
-print("📱 MENÜ ÖZELLİKLERİ:")
-print("  Aimbot - Otomatik nişan al")
-print("  Boxes - Oyuncu kutuları")
-print("  Distance - Mesafe göster")
-print("  Wallhack - Duvarlardan gör")
-print("  Names - İsim göster")
-print("  Skeleton - İskelet göster")
-print("  Animations - Animasyonlar")
-print("  Rainbow - Renkli ESP")
-print("  Range ESP - Menzil göstergesi")
-print("  Shooting - Otomatik ateş")
-print("========================================")
