@@ -1,0 +1,502 @@
+-- ================================================
+-- 🦈 SHARKBITE 2 - PRO MENU v1.0
+-- ================================================
+
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+local Window = Rayfield:CreateWindow({
+	Name = "🦈 PRO MENU SHARKBITE 2",
+	LoadingTitle = "PRO MENU",
+	LoadingSubtitle = "SharkBite 2",
+	Theme = "Default",
+	ToggleUIKeybind = "K",
+	ConfigurationSaving = {
+		Enabled = true,
+		FolderName = nil,
+		FileName = "SharkConfig"
+	},
+	Discord = {
+		Enabled = false,
+		Invite = "",
+		RememberJoins = true
+	},
+	KeySystem = false
+})
+
+local Tab = Window:CreateTab("Main", 4483362458)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local Camera = workspace.CurrentCamera
+
+local player = Players.LocalPlayer
+local backpack = player:WaitForChild("Backpack")
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp
+
+local remote = nil
+local sharkName = nil
+
+local validWeapons = ReplicatedStorage:WaitForChild("ClientViewportObjects"):WaitForChild("Weapons")
+
+local remotesFolder = ReplicatedStorage
+	:WaitForChild("Projectiles")
+	:WaitForChild("Events")
+	:WaitForChild("Weapons")
+	:WaitForChild("remotes")
+
+local function hookRemote(remoteObject)
+	local mt = getrawmetatable(game)
+	setreadonly(mt, false)
+	local oldNamecall = mt.__namecall
+	mt.__namecall = newcclosure(function(self, ...)
+		local method = getnamecallmethod()
+		if self == remoteObject and (method == "FireServer" or method == "InvokeServer") then
+			remote = self.Name
+			mt.__namecall = oldNamecall
+			setreadonly(mt, true)
+		end
+		return oldNamecall(self, ...)
+	end)
+end
+
+for _, child in ipairs(remotesFolder:GetChildren()) do
+	if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+		pcall(hookRemote, child)
+	end
+end
+
+local afk = player.PlayerScripts:FindFirstChild("AFK")
+if afk then afk:Destroy() end
+
+local hud = player.PlayerScripts:FindFirstChild("HUD")
+if hud then
+	local oxygen = hud:FindFirstChild("Oxygen")
+	if oxygen then oxygen:Destroy() end
+end
+
+local function updateHRP()
+	character = player.Character or player.CharacterAdded:Wait()
+	backpack = player:WaitForChild("Backpack")
+	local humanoid = character:WaitForChild("Humanoid")
+	hrp = humanoid and humanoid.RootPart
+end
+
+player.CharacterAdded:Connect(updateHRP)
+if player.Character then updateHRP() end
+
+local function unseat()
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.SeatPart then
+		humanoid.Sit = false
+	end
+end
+
+local sharksFolder = workspace:WaitForChild("Sharks")
+
+local function getShark()
+	for _, shark in ipairs(sharksFolder:GetChildren()) do
+		if shark:IsA("Model") then
+			sharkName = shark.Name
+			return
+		end
+	end
+	sharkName = nil
+end
+
+getShark()
+sharksFolder.ChildAdded:Connect(getShark)
+sharksFolder.ChildRemoved:Connect(getShark)
+
+local currentSide = 1
+local sideResults = {{}, {}, {}, {}}
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+local function getSharkCenter(shark)
+	local boundingCF, boundingSize = shark:GetBoundingBox()
+	local center = boundingCF.Position - Vector3.new(0, boundingSize.Y * 0.125, 0)
+
+	rayParams.FilterDescendantsInstances = {character, shark}
+
+	for i, angle in ipairs({0, 90, 180, 270}) do
+		local rad = math.rad(angle)
+		local dir = Vector3.new(math.cos(rad), 0, math.sin(rad))
+		local result = workspace:Raycast(center, dir * 300, rayParams)
+		sideResults[i].dist = result and result.Distance or 300
+		sideResults[i].dir = dir
+	end
+
+	if sideResults[currentSide].dist < 200 then
+		local bestSide, bestDist = currentSide, sideResults[currentSide].dist
+		for i = 1, 4 do
+			if sideResults[i].dist > bestDist then
+				bestDist = sideResults[i].dist
+				bestSide = i
+			end
+		end
+		currentSide = bestSide
+	end
+
+	local best = sideResults[currentSide]
+	return center + best.dir * best.dist
+end
+
+local function killShark()
+	if sharkName and remote then
+		local shark = sharksFolder:FindFirstChild(sharkName)
+		if shark then
+			remotesFolder:WaitForChild(remote):FireServer(shark, true)
+		end
+	end
+end
+
+Tab:CreateSection("⚡ AUTOFARM")
+
+local killConnection
+local lastClickTime = 0
+local clickCooldown = 1
+
+Tab:CreateToggle({
+	Name = "🔪 Auto Kill Shark",
+	CurrentValue = false,
+	Flag = "AutoKillShark",
+	Callback = function(on)
+		if on and (not getrawmetatable or not setreadonly or not newcclosure) then
+			task.delay(0.2, function()
+				Rayfield.Flags["AutoKillShark"]:Set(false)
+			end)
+			Rayfield:Notify({
+				Title = "Executor Too Weak",
+				Content = "Your executor does not support getrawmetatable, setreadonly, or newcclosure.",
+				Duration = 3
+			})
+			return
+		end
+
+		if on then
+			killConnection = RunService.Heartbeat:Connect(function()
+				if not (player.Team and player.Team.Name == "Survivor" and hrp) then return end
+
+				if not sharkName then
+					Camera.CameraType = Enum.CameraType.Custom
+					local chinook = workspace:FindFirstChild("Chinook")
+					local interior = chinook and chinook:FindFirstChild("interior")
+					if interior then
+						unseat()
+						hrp.CFrame = interior.CFrame
+					end
+				else
+					local shark = sharksFolder:FindFirstChild(sharkName)
+					if shark then
+						local sharkPart = shark.PrimaryPart or shark:FindFirstChildWhichIsA("BasePart", true)
+						if sharkPart then
+							if next(backpack:GetChildren()) then
+								for _, tool in ipairs(backpack:GetChildren()) do
+									if tool:IsA("Tool") and validWeapons:FindFirstChild(tool.Name) and tool.Name ~= "Turtle" and tool.Name ~= "FlareGun" and tool.Name ~= "BaitBucket" then
+										tool.Parent = character
+									end
+								end
+							end
+
+							if not remote then
+								local boundingCF, boundingSize = shark:GetBoundingBox()
+								local center = boundingCF.Position - Vector3.new(0, boundingSize.Y * 0.125, 0)
+
+								unseat()
+								hrp.CFrame = CFrame.new(center)
+
+								Camera.CameraType = Enum.CameraType.Scriptable
+								Camera.CFrame = CFrame.new(center, sharkPart.Position)
+
+								local equippedTool = character:FindFirstChildOfClass("Tool")
+								if equippedTool then
+									local now = os.clock()
+									if now - lastClickTime >= clickCooldown then
+										local vp = Camera.ViewportSize
+										local cx, cy = vp.X / 2, vp.Y / 2
+										VirtualInputManager:SendMouseMoveEvent(cx, cy, game)
+										VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
+										VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
+										lastClickTime = now
+									end
+								end
+							else
+								local sharkCenter = getSharkCenter(shark)
+								Camera.CameraType = Enum.CameraType.Custom
+								unseat()
+								hrp.CFrame = CFrame.new(sharkCenter)
+								killShark()
+							end
+						end
+					end
+				end
+			end)
+		else
+			Camera.CameraType = Enum.CameraType.Custom
+			if killConnection then
+				killConnection:Disconnect()
+				killConnection = nil
+			end
+		end
+	end
+})
+
+local destructionParts = {}
+local autoWinConnection
+local sharksDescConnection
+
+local function getSharkModel(part)
+	local current = part.Parent
+	while current and current ~= sharksFolder do
+		if current.Parent == sharksFolder then
+			return current
+		end
+		current = current.Parent
+	end
+	return nil
+end
+
+local function getFrontPart(shark, parts)
+	if #parts == 0 then return nil end
+	if #parts == 1 then return parts[1] end
+
+	local root = shark.PrimaryPart or shark:FindFirstChildWhichIsA("BasePart", true)
+	if not root then return parts[1] end
+
+	local lookVector = root.CFrame.LookVector
+	local bestPart, bestDot = nil, -math.huge
+
+	for _, part in ipairs(parts) do
+		if part and part.Parent then
+			local dir = part.Position - root.Position
+			if dir.Magnitude > 0 then
+				local dot = lookVector:Dot(dir.Unit)
+				if dot > bestDot then
+					bestDot = dot
+					bestPart = part
+				end
+			end
+		end
+	end
+
+	return bestPart
+end
+
+local function addDestructionPart(part)
+	local shark = getSharkModel(part)
+	if not shark then return end
+
+	if not destructionParts[shark] then
+		destructionParts[shark] = {}
+		shark.AncestryChanged:Connect(function(_, parent)
+			if not parent then
+				destructionParts[shark] = nil
+			end
+		end)
+	end
+
+	table.insert(destructionParts[shark], part)
+
+	part.AncestryChanged:Connect(function(_, parent)
+		if parent then return end
+		local list = destructionParts[shark]
+		if not list then return end
+		for i = #list, 1, -1 do
+			if list[i] == part then
+				table.remove(list, i)
+				break
+			end
+		end
+	end)
+end
+
+local function getNearestSurvivor(part)
+	local nearestPlayer, nearestDist = nil, math.huge
+	for _, plr in Players:GetPlayers() do
+		if plr ~= player and plr.Team and plr.Team.Name == "Survivor" then
+			local char = plr.Character
+			local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+			local targetHRP = humanoid and humanoid.RootPart
+			if targetHRP and not targetHRP:FindFirstChild("Attachment") then
+				local dist = (targetHRP.Position - part.Position).Magnitude
+				if dist < nearestDist then
+					nearestDist = dist
+					nearestPlayer = plr
+				end
+			end
+		end
+	end
+	return nearestPlayer
+end
+
+Tab:CreateToggle({
+	Name = "🏆 Auto Win As Shark",
+	CurrentValue = false,
+	Flag = "AutoWinShark",
+	Callback = function(state)
+		if state then
+			for _, d in ipairs(sharksFolder:GetDescendants()) do
+				if d:IsA("BasePart") and d.Name == "DestructionPart" then
+					addDestructionPart(d)
+				end
+			end
+
+			sharksDescConnection = sharksFolder.DescendantAdded:Connect(function(desc)
+				if desc:IsA("BasePart") and desc.Name == "DestructionPart" then
+					addDestructionPart(desc)
+				end
+			end)
+
+			autoWinConnection = RunService.Heartbeat:Connect(function()
+				if not (player.Team and player.Team.Name == "Shark") then return end
+
+				for shark, parts in destructionParts do
+					local ownerValue = shark:FindFirstChild("PlayerOwner")
+					if not (ownerValue and ownerValue:IsA("ObjectValue") and ownerValue.Value == player) then continue end
+
+					local frontPart = getFrontPart(shark, parts)
+					if not frontPart or not frontPart.Parent then continue end
+
+					local target = getNearestSurvivor(frontPart)
+					if target and target.Character then
+						local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
+						local targetHRP = humanoid and humanoid.RootPart
+						if targetHRP then
+							frontPart.CFrame = CFrame.new(targetHRP.Position) * CFrame.Angles(math.rad(45), math.rad(-90), 0)
+						end
+					end
+				end
+			end)
+		else
+			if autoWinConnection then
+				autoWinConnection:Disconnect()
+				autoWinConnection = nil
+			end
+			if sharksDescConnection then
+				sharksDescConnection:Disconnect()
+				sharksDescConnection = nil
+			end
+			table.clear(destructionParts)
+		end
+	end
+})
+
+Tab:CreateSection("👁 ESP")
+
+local espConnections = {}
+local espWatching = false
+
+local function setSharkESP(enabled)
+	for _, conn in ipairs(espConnections) do
+		conn:Disconnect()
+	end
+	table.clear(espConnections)
+	espWatching = false
+
+	for _, desc in ipairs(sharksFolder:GetDescendants()) do
+		if desc:IsA("Highlight") then
+			desc.Enabled = enabled
+			desc.OutlineTransparency = enabled and 0 or 1
+			if enabled then
+				table.insert(espConnections, desc:GetPropertyChangedSignal("Enabled"):Connect(function()
+					if not desc.Enabled then desc.Enabled = true end
+				end))
+				table.insert(espConnections, desc:GetPropertyChangedSignal("OutlineTransparency"):Connect(function()
+					if desc.OutlineTransparency ~= 0 then desc.OutlineTransparency = 0 end
+				end))
+			end
+		end
+	end
+
+	if enabled and not espWatching then
+		espWatching = true
+		table.insert(espConnections, sharksFolder.DescendantAdded:Connect(function(desc)
+			if desc:IsA("Highlight") then
+				desc.Enabled = true
+				desc.OutlineTransparency = 0
+				table.insert(espConnections, desc:GetPropertyChangedSignal("Enabled"):Connect(function()
+					if not desc.Enabled then desc.Enabled = true end
+				end))
+				table.insert(espConnections, desc:GetPropertyChangedSignal("OutlineTransparency"):Connect(function()
+					if desc.OutlineTransparency ~= 0 then desc.OutlineTransparency = 0 end
+				end))
+			end
+		end))
+	end
+end
+
+Tab:CreateToggle({
+	Name = "🔴 Highlight Sharks",
+	CurrentValue = false,
+	Flag = "SharkESP",
+	Callback = function(state)
+		setSharkESP(state)
+	end
+})
+
+Tab:CreateSection("🏺 AUTO VASE")
+
+local vaseParts = {}
+local vaseConnections = {}
+local vaseConnection
+
+local function addVasePart(part)
+	table.insert(vaseParts, part)
+	part.AncestryChanged:Connect(function(_, parent)
+		if parent then return end
+		for i = #vaseParts, 1, -1 do
+			if vaseParts[i] == part then
+				table.remove(vaseParts, i)
+				break
+			end
+		end
+	end)
+end
+
+Tab:CreateToggle({
+	Name = "🏺 Auto Touch Vases",
+	CurrentValue = false,
+	Flag = "AutoTouchVases",
+	Callback = function(state)
+		if state then
+			local folder = workspace:FindFirstChild("Vases")
+			if folder then
+				for _, d in ipairs(folder:GetDescendants()) do
+					if d:IsA("TouchTransmitter") then
+						addVasePart(d)
+					end
+				end
+				table.insert(vaseConnections, folder.DescendantAdded:Connect(function(desc)
+					if desc:IsA("TouchTransmitter") then
+						addVasePart(desc)
+					end
+				end))
+			end
+
+			vaseConnection = RunService.Heartbeat:Connect(function()
+				if killConnection and sharkName then return end
+				if not hrp then return end
+				for _, t in ipairs(vaseParts) do
+					if t and t.Parent and t.Parent:IsA("BasePart") then
+						local part = t.Parent
+						unseat()
+						hrp.CFrame = part.CFrame
+						pcall(firetouchinterest, hrp, part, 0)
+						pcall(firetouchinterest, hrp, part, 1)
+					end
+				end
+			end)
+		else
+			for _, c in ipairs(vaseConnections) do c:Disconnect() end
+			table.clear(vaseConnections)
+			table.clear(vaseParts)
+			if vaseConnection then
+				vaseConnection:Disconnect()
+				vaseConnection = nil
+			end
+		end
+	end
+})
